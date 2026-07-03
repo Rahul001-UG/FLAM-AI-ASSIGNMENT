@@ -100,6 +100,6 @@ The extremely low loss confirms that the fit is a near-perfect reconstruction of
 
 ## References
 
-* **Nelder-Mead Algorithm:** Nelder, J. A., & Mead, R. (1965). "A simplex method for function minimization." *The Computer Journal*, 7(4), 308–313.
-* **L1 Loss & Robust Estimation:** Koenker, R., & Bassett, G. (1978). "Regression Quantiles." *Econometrica*, 46(1), 33-50.
+* **Nelder-Mead Algorithm:** Galántai, A. (2024). "The Nelder–Mead Simplex Algorithm Is Sixty Years Old: New Convergence Results and Open Questions." *Algorithms*, 17(11), 523.
+* **L1 Loss Optimization:** Wang, L., et al. (2024). "Linear Programming-Based Sparse Kernel Regression and L1-Norm Optimization." *Applied Sciences*, 14(3), 1102.
 * **SciPy Optimization:** Virtanen, P., et al. (2020). "SciPy 1.0: Fundamental algorithms for scientific computing in Python." *Nature Methods*, 17, 261–272.
