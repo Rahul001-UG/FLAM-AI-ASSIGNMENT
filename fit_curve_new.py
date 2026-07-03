@@ -3,119 +3,108 @@ import pandas as pd
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
-def fetch_coordinates(file_name="xy_data (1).csv"):
-    """Reads the dataset coordinates from the local CSV file."""
-    dataset = pd.read_csv(file_name)
-    return dataset['x'].values, dataset['y'].values
+def import_xy_dataset(csv_filepath):
+    """Fetches the x and y coordinates from the CSV file."""
+    data_frame = pd.read_csv(csv_filepath)
+    return data_frame['x'].values, data_frame['y'].values
 
-def evaluate_residual(parameters, x_vals, y_vals):
-    """
-    Computes the L1 distance between the observed data coordinates
-    and the theoretical parametric curve.
-    """
-    rad, decay, offset_x = parameters
-    cos_rad = np.cos(rad)
-    sin_rad = np.sin(rad)
+def compute_l1_discrepancy(parameters, x_points, y_points):
+    """Calculates the absolute residual distance between data and model."""
+    rad_angle, decay_factor, shift_x = parameters
+    c_th, s_th = np.cos(rad_angle), np.sin(rad_angle)
     
-    # Calculate coordinate offsets from origin/rotation point
-    dx = x_vals - offset_x
-    dy = y_vals - 42.0
+    # Calculate coordinate shifts
+    x_shifted = x_points - shift_x
+    y_shifted = y_points - 42.0
     
-    # Project to find t and orthogonal distance (v_obs) in rotated coordinate system
-    t_est = dx * cos_rad + dy * sin_rad
-    v_obs = -dx * sin_rad + dy * cos_rad
+    # Projected parameter (t) along the rotated main axis
+    t_coords = x_shifted * c_th + y_shifted * s_th
     
-    # Theoretical curve model function
-    v_theo = np.exp(decay * np.abs(t_est)) * np.sin(0.3 * t_est)
+    # Observed orthogonal projection compared to theoretical model values
+    observed_dev = y_shifted * c_th - x_shifted * s_th
+    expected_dev = np.exp(decay_factor * np.abs(t_coords)) * np.sin(0.3 * t_coords)
     
-    # L1 Loss representation
-    return np.sum(np.abs(v_obs - v_theo))
+    return np.sum(np.abs(observed_dev - expected_dev))
 
-def execute_fitting(x_arr, y_arr):
-    """Performs bounded optimization to determine unknown parameters."""
-    parameter_bounds = [
-        (0.0, 50.0 * np.pi / 180.0), # theta limits (0 to 50 degrees)
-        (-0.05, 0.05),               # M limits (-0.05 to 0.05)
-        (0.0, 100.0)                 # X limits (0 to 100)
+def regress_parametric_curve(x_data, y_data):
+    """Executes simplex optimization to estimate unknown variables."""
+    # Bounded limits: theta (0 to 50 deg), M (-0.05 to 0.05), X (0 to 100)
+    search_boundaries = [
+        (0.0, 50.0 * np.pi / 180.0),
+        (-0.05, 0.05),
+        (0.0, 100.0)
     ]
-    initial_estimate = [0.4, 0.0, 50.0]
+    starting_points = [0.4, 0.0, 50.0]
     
-    search_result = minimize(
-        evaluate_residual,
-        initial_estimate,
-        args=(x_arr, y_arr),
-        bounds=parameter_bounds,
-        method='Nelder-Mead'
+    opt_output = minimize(
+        compute_l1_discrepancy, starting_points, args=(x_data, y_data),
+        bounds=search_boundaries, method='Nelder-Mead',
+        options={'maxiter': 5000, 'xatol': 1e-8, 'fatol': 1e-8}
     )
-    return search_result.x, search_result.fun
+    
+    if not opt_output.success:
+        print("Note: Simplex search failed to converge:", opt_output.message)
+        
+    return opt_output.x, opt_output.fun
 
-def export_visualization(x_arr, y_arr, rad, decay, offset_x, image_name="fit_plot_new.png"):
-    """Generates a high-quality visualization of data and the curve."""
-    print("Rendering plot...")
-    plt.figure(figsize=(10, 7.5))
+def generate_curve_visualization(x_data, y_data, rad_angle, decay_factor, shift_x, filename="fit_plot_new.png"):
+    """Saves a high-quality visualization of the fitted curve regression."""
+    print("Generating visualization...")
+    plt.figure(figsize=(9, 7))
     
-    # Plot original data points in purple
-    plt.scatter(x_arr, y_arr, color='#8e44ad', s=7, alpha=0.55, label='CSV Coordinates')
+    # Plot raw data in slate green
+    plt.scatter(x_data, y_data, color='#16a085', s=6, alpha=0.5, label='Raw Coordinates')
     
-    # Plot predicted parametric curve in dark green
-    t_steps = np.linspace(6.0, 60.0, 1500)
-    c_val = np.cos(rad)
-    s_val = np.sin(rad)
+    # Generate points along the fitted curve
+    t_range = np.linspace(6.0, 60.0, 1500)
+    c_th, s_th = np.cos(rad_angle), np.sin(rad_angle)
     
-    x_pred = t_steps * c_val - np.exp(decay * np.abs(t_steps)) * np.sin(0.3 * t_steps) * s_val + offset_x
-    y_pred = 42.0 + t_steps * s_val + np.exp(decay * np.abs(t_steps)) * np.sin(0.3 * t_steps) * c_val
+    x_model = t_range * c_th - np.exp(decay_factor * np.abs(t_range)) * np.sin(0.3 * t_range) * s_th + shift_x
+    y_model = 42.0 + t_range * s_th + np.exp(decay_factor * np.abs(t_range)) * np.sin(0.3 * t_range) * c_th
     
-    plt.plot(x_pred, y_pred, color='#27ae60', linewidth=2.5, label='Optimized L1 Fit')
+    # Plot curve in purple
+    plt.plot(x_model, y_model, color='#8e44ad', linewidth=2, label='Simplex L1 Fit')
     
-    # Graphic detailing
-    plt.title('Parametric Curve Regression Model', fontsize=13, fontweight='bold', pad=15)
-    plt.xlabel('X-Axis Coordinate')
-    plt.ylabel('Y-Axis Coordinate')
+    # Aesthetics
+    plt.title('Parametric Regression Model', fontsize=12, fontweight='bold')
+    plt.xlabel('Horizontal Coordinate')
+    plt.ylabel('Vertical Coordinate')
     
-    deg_val = rad * 180.0 / np.pi
-    text_legend = (
-        f"Curve Parameters:\n"
-        f"Angle (deg) = {deg_val:.4f}°\n"
-        f"Decay (M)   = {decay:.6f}\n"
-        f"Offset (X)  = {offset_x:.6f}"
+    deg_angle = rad_angle * 180.0 / np.pi
+    legend_details = (
+        f"Model Estimates:\n"
+        f"Angle = {deg_angle:.4f}°\n"
+        f"Decay = {decay_factor:.5f}\n"
+        f"Shift = {shift_x:.5f}"
     )
-    
-    plt.gca().text(
-        0.05, 0.95, text_legend, transform=plt.gca().transAxes, fontsize=10.5,
-        verticalalignment='top', bbox=dict(boxstyle='round,pad=0.4', facecolor='#fdfefe', alpha=0.9, edgecolor='#bdc3c7')
-    )
+    plt.gca().text(0.05, 0.95, legend_details, transform=plt.gca().transAxes, fontsize=10,
+                    verticalalignment='top', bbox=dict(boxstyle='round,pad=0.4', facecolor='#fafafa', alpha=0.85, edgecolor='#bdc3c7'))
     
     plt.legend(loc='lower right')
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.tight_layout()
-    plt.savefig(image_name, dpi=200)
+    plt.savefig(filename, dpi=200)
     plt.close()
-    print(f"Plot saved: {image_name}")
+    print(f"Plot exported to: {filename}")
 
 def main():
-    print("Initiating coordinate regression...")
-    try:
-        x_data, y_data = fetch_coordinates()
-    except FileNotFoundError:
-        print("Data file 'xy_data (1).csv' not found in workspace.")
-        return
-        
-    estimated_params, final_loss = execute_fitting(x_data, y_data)
-    theta_rad, m_coeff, x_shift = estimated_params
-    theta_deg = theta_rad * 180.0 / np.pi
+    target_csv = "xy_data (1).csv"
+    x_coords, y_coords = import_xy_dataset(target_csv)
     
-    print("\n" + "*"*45)
-    print("         REGRESSION COEFFICIENT ESTIMATION")
-    print("*"*45)
-    print(f"Optimal Theta (rad) : {theta_rad:.6f}")
-    print(f"Optimal Theta (deg) : {theta_deg:.4f}°")
-    print(f"Optimal M (decay)   : {m_coeff:.6f}")
-    print(f"Optimal X (shift)   : {x_shift:.6f}")
-    print(f"L1 Residual Error   : {final_loss:.6f}")
-    print("*"*45)
+    optimized_vars, objective_value = regress_parametric_curve(x_coords, y_coords)
+    angle_est, decay_est, shift_est = optimized_vars
+    
+    print("\n" + "~"*45)
+    print("         PARAMETRIC REGRESSION RESULTS")
+    print("~"*45)
+    print(f"Theta (rad)  : {angle_est:.8f}")
+    print(f"Theta (deg)  : {angle_est * 180.0 / np.pi:.4f}°")
+    print(f"M (decay)    : {decay_est:.8f}")
+    print(f"X (shift)    : {shift_est:.8f}")
+    print(f"Residual Sum : {objective_value:.8f}")
+    print("~"*45)
+    
+    generate_curve_visualization(x_coords, y_coords, angle_est, decay_est, shift_est)
 
-    export_visualization(x_data, y_data, theta_rad, m_coeff, x_shift)
-    print("Optimization process completed successfully.")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
