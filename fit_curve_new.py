@@ -73,9 +73,9 @@ def generate_curve_visualization(x_data, y_data, rad_angle, decay_factor, shift_
     deg_angle = rad_angle * 180.0 / np.pi
     legend_details = (
         f"Model Estimates:\n"
-        f"Angle = {deg_angle:.4f}°\n"
-        f"Decay = {decay_factor:.5f}\n"
-        f"Shift = {shift_x:.5f}"
+        f"$\\theta$ = {deg_angle:.4f}° ({rad_angle:.6f} rad)\n"
+        f"$M$ = {decay_factor:.6f}\n"
+        f"$X$ = {shift_x:.6f}"
     )
     plt.gca().text(0.05, 0.95, legend_details, transform=plt.gca().transAxes, fontsize=10,
                     verticalalignment='top', bbox=dict(boxstyle='round,pad=0.4', facecolor='#fafafa', alpha=0.85, edgecolor='#bdc3c7'))
